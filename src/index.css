@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  
+  --color-brand-black: #000000;
+  --color-brand-cream: #F5F0E8;
+  --color-brand-orange: #FF6B35;
+  --color-brand-dark: #111111;
+  --color-brand-muted: #666666;
+
+  --radius-brand: 20px;
+}
+
+@layer base {
+  body {
+    @apply bg-brand-black text-brand-cream font-sans selection:bg-brand-orange selection:text-white;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  .text-display {
+    @apply font-display font-bold leading-[0.9] tracking-tighter uppercase;
+  }
+  
+  .glass {
+    @apply bg-brand-black/50 backdrop-blur-xl border border-white/10;
+  }
+
+  .outline-text {
+    -webkit-text-stroke: 1px rgba(245, 240, 232, 0.4);
+    color: transparent;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .vertical-marquee {
+    animation: vertical-marquee 20s linear infinite;
+  }
+
+  @keyframes vertical-marquee {
+    from { transform: translateY(0); }
+    to { transform: translateY(-50%); }
+  }
+}
