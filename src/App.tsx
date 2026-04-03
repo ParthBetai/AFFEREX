@@ -173,18 +173,17 @@ const StackedHeading = ({ lines }: { lines: string[] }) => (
 
 const Marquee = ({ items, reverse = false, speed = 30 }: { items: string[], reverse?: boolean, speed?: number }) => {
   const { scrollYProgress } = useScroll();
-  const xOffset = useTransform(scrollYProgress, [0, 1], reverse ? [0, -200] : [0, 200]);
-  const skew = useTransform(scrollYProgress, [0, 1], [0, reverse ? -5 : 5]);
+  const skew = useTransform(scrollYProgress, [0, 1], [0, reverse ? -10 : 10]);
 
   return (
     <div className="marquee-container py-12 border-y border-white/5 overflow-hidden relative">
       <motion.div 
-        style={{ x: xOffset, skewX: skew }}
+        style={{ skewX: skew }}
         animate={{ x: reverse ? [0, -1000] : [-1000, 0] }}
         transition={{ duration: speed, repeat: Infinity, ease: "linear" }}
         className="flex whitespace-nowrap"
       >
-        {[...items, ...items, ...items].map((item, i) => (
+        {[...items, ...items, ...items, ...items].map((item, i) => (
           <div key={i} className="flex items-center gap-6 px-12">
             <span className="text-4xl md:text-6xl font-display font-bold outline-text opacity-40 hover:opacity-100 hover:text-brand-orange transition-all duration-500 cursor-default uppercase tracking-tighter hover:scale-110 inline-block">
               {item}
@@ -239,72 +238,90 @@ const CursorGlow = () => {
   );
 };
 
-const InteractiveShape = ({ className, parallax = 0 }: { className?: string, parallax?: number }) => {
+const EyeGraphic = () => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollY } = useScroll();
-  const yOffset = useTransform(scrollY, [0, 1000], [0, parallax * 100]);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const x = e.clientX - (rect.left + rect.width / 2);
-    const y = e.clientY - (rect.top + rect.height / 2);
-    setMousePos({ x, y });
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, []);
+
+  const calculateEyePosition = (eyeCenterX: number, eyeCenterY: number) => {
+    const angle = Math.atan2(mousePos.y - eyeCenterY, mousePos.x - eyeCenterX);
+    const distance = Math.min(
+      Math.hypot(mousePos.x - eyeCenterX, mousePos.y - eyeCenterY) / 10,
+      6 // Max movement within socket
+    );
+    
+    return {
+      x: Math.cos(angle) * distance,
+      y: Math.sin(angle) * distance
+    };
   };
 
-  const handleMouseLeave = () => {
-    setMousePos({ x: 0, y: 0 });
-  };
+  const [eyePositions, setEyePositions] = useState({ left: { x: 0, y: 0 }, right: { x: 0, y: 0 } });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const leftEyeX = rect.left + rect.width * 0.3;
+    const leftEyeY = rect.top + rect.height * 0.5;
+    const rightEyeX = rect.left + rect.width * 0.6;
+    const rightEyeY = rect.top + rect.height * 0.5;
+
+    setEyePositions({
+      left: calculateEyePosition(leftEyeX, leftEyeY),
+      right: calculateEyePosition(rightEyeX, rightEyeY)
+    });
+  }, [mousePos]);
 
   return (
-    <motion.div
-      ref={ref}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{ y: yOffset }}
-      animate={{
-        x: mousePos.x * 0.1,
-        y: mousePos.y * 0.1,
-        rotate: mousePos.x * 0.05
-      }}
-      className={`cursor-pointer ${className}`}
+    <div 
+      ref={containerRef} 
+      className="fixed right-0 top-1/2 -translate-y-1/2 z-[100] translate-x-1/2 hover:translate-x-0 transition-transform duration-500"
     >
-      <div className="w-full h-full bg-brand-orange/10 border border-brand-orange/20 rounded-full backdrop-blur-sm flex items-center justify-center group">
-        <div className="w-1/2 h-1/2 bg-brand-orange rounded-full opacity-20 group-hover:opacity-40 transition-opacity" />
-      </div>
-    </motion.div>
-  );
-};
+      <motion.div 
+        className="w-32 h-24 bg-brand-dark border border-white/10 rounded-l-full flex items-center justify-center gap-3 pl-6 pr-4 shadow-2xl relative overflow-hidden group"
+      >
+        <div className="absolute inset-0 bg-gradient-to-l from-brand-orange/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        
+        {/* Left Eye Socket */}
+        <div className="w-10 h-10 bg-brand-cream rounded-full flex items-center justify-center relative overflow-hidden shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
+          <motion.div 
+            animate={{ x: eyePositions.left.x, y: eyePositions.left.y }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="w-5 h-5 bg-brand-black rounded-full relative"
+          >
+            <div className="w-1.5 h-1.5 bg-white rounded-full absolute top-1 left-1 opacity-80" />
+          </motion.div>
+          <motion.div 
+            animate={{ height: ["0%", "0%", "100%", "0%", "0%"] }}
+            transition={{ duration: 4, repeat: Infinity, times: [0, 0.85, 0.9, 0.95, 1] }}
+            className="absolute top-0 left-0 w-full bg-brand-dark z-10"
+          />
+        </div>
 
-const MagneticButton = ({ children, className, onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const ref = useRef<HTMLButtonElement>(null);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!ref.current) return;
-    const { left, top, width, height } = ref.current.getBoundingClientRect();
-    const x = e.clientX - (left + width / 2);
-    const y = e.clientY - (top + height / 2);
-    setPosition({ x: x * 0.3, y: y * 0.3 });
-  };
-
-  const handleMouseLeave = () => {
-    setPosition({ x: 0, y: 0 });
-  };
-
-  return (
-    <motion.button
-      ref={ref}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      animate={{ x: position.x, y: position.y }}
-      transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
-      onClick={onClick}
-      className={className}
-    >
-      {children}
-    </motion.button>
+        {/* Right Eye Socket */}
+        <div className="w-10 h-10 bg-brand-cream rounded-full flex items-center justify-center relative overflow-hidden shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
+          <motion.div 
+            animate={{ x: eyePositions.right.x, y: eyePositions.right.y }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="w-5 h-5 bg-brand-black rounded-full relative"
+          >
+            <div className="w-1.5 h-1.5 bg-white rounded-full absolute top-1 left-1 opacity-80" />
+          </motion.div>
+          <motion.div 
+            animate={{ height: ["0%", "0%", "100%", "0%", "0%"] }}
+            transition={{ duration: 4, repeat: Infinity, times: [0, 0.85, 0.9, 0.95, 1] }}
+            className="absolute top-0 left-0 w-full bg-brand-dark z-10"
+          />
+        </div>
+      </motion.div>
+    </div>
   );
 };
 
@@ -483,25 +500,14 @@ const App = () => {
     <div className="relative overflow-x-hidden">
       <CursorGlow />
       <Navbar />
+      <EyeGraphic />
       
-      <motion.button
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        className="fixed bottom-8 right-8 z-50 w-12 h-12 bg-brand-orange text-brand-black rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-      >
-        <ArrowUpRight className="-rotate-45" size={24} />
-      </motion.button>
-
       {/* --- Hero Section --- */}
       <section className="relative min-h-screen flex flex-col items-center justify-center pt-32 pb-20 px-6 overflow-hidden">
         {/* Glow Background */}
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80vw] h-[60vh] bg-brand-orange/10 blur-[120px] rounded-full -z-10" />
         
         <div className="max-w-5xl w-full text-center md:text-left relative z-10">
-          <InteractiveShape className="absolute -top-40 -left-40 w-40 h-40 hidden lg:block opacity-50" parallax={-1} />
-          <InteractiveShape className="absolute top-60 -right-60 w-60 h-60 hidden lg:block opacity-50" parallax={1} />
-          
           <h1 className="text-display text-[10vw] md:text-[8vw] lg:text-[7vw] mb-12 leading-[1.1]">
             <motion.span className="inline-block mr-[0.3em]" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>Handcrafted</motion.span>
             <motion.span className="inline-block mr-[0.3em]" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1 }}>designs</motion.span>
@@ -526,12 +532,12 @@ const App = () => {
               transition={{ delay: 1 }}
               className="flex flex-wrap gap-4"
             >
-              <MagneticButton className="px-8 py-4 bg-brand-cream text-brand-black rounded-full font-bold hover:bg-white transition-all transform hover:scale-105">
+              <button className="px-8 py-4 bg-brand-cream text-brand-black rounded-full font-bold hover:bg-white transition-all transform hover:scale-105">
                 Book a free call
-              </MagneticButton>
-              <MagneticButton className="px-8 py-4 border border-white/20 rounded-full font-bold hover:bg-white/5 transition-all">
+              </button>
+              <button className="px-8 py-4 border border-white/20 rounded-full font-bold hover:bg-white/5 transition-all">
                 How it works
-              </MagneticButton>
+              </button>
             </motion.div>
           </div>
         </div>
@@ -543,7 +549,7 @@ const App = () => {
       </section>
 
       {/* --- How It Works --- */}
-      <section id="how-it-works" className="py-32 px-6 max-w-7xl mx-auto">
+      <section id="how-it-works" className="py-32 px-6 max-w-7xl mx-auto relative">
         <FadeUp>
           <SectionLabel>How it works</SectionLabel>
           <StackedHeading lines={['Designs', 'whenever', 'you', 'need', 'them']} />
@@ -619,7 +625,6 @@ const App = () => {
 
       {/* --- Membership Benefits --- */}
       <section className="py-32 px-6 max-w-7xl mx-auto relative">
-        <InteractiveShape className="absolute top-0 right-0 w-32 h-32 opacity-20" parallax={-0.5} />
         <FadeUp>
           <SectionLabel>Membership benefits</SectionLabel>
           <StackedHeading lines={['Great', 'designs,', 'greater', 'speed']} />
@@ -721,42 +726,29 @@ const App = () => {
 
       {/* --- About Section --- */}
       <section id="about" className="py-32 px-6 max-w-7xl mx-auto relative">
-        <InteractiveShape className="absolute bottom-0 left-0 w-48 h-48 opacity-10" parallax={0.5} />
         <FadeUp>
           <SectionLabel>About us</SectionLabel>
         </FadeUp>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
           <div className="grid grid-cols-2 gap-4 order-2 lg:order-1">
-            <motion.div 
-              whileHover={{ scale: 1.02, rotate: -1 }}
-              className="space-y-4"
-            >
+            <div className="space-y-4">
               <div className="aspect-[3/4] bg-brand-dark rounded-brand overflow-hidden border border-white/10 grayscale hover:grayscale-0 transition-all duration-700 relative group">
                 <img src="https://picsum.photos/seed/parth/600/800" alt="Parth Betai" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                <div className="absolute inset-0 bg-brand-orange/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="text-white font-bold text-xs uppercase tracking-widest">Visionary</span>
-                </div>
               </div>
               <div className="text-center">
                 <div className="font-bold">Parth Betai</div>
                 <div className="text-xs text-brand-muted uppercase tracking-widest">Co-Founder</div>
               </div>
-            </motion.div>
-            <motion.div 
-              whileHover={{ scale: 1.02, rotate: 1 }}
-              className="space-y-4 mt-12"
-            >
+            </div>
+            <div className="space-y-4 mt-12">
               <div className="aspect-[3/4] bg-brand-dark rounded-brand overflow-hidden border border-white/10 grayscale hover:grayscale-0 transition-all duration-700 relative group">
                 <img src="https://picsum.photos/seed/parvez/600/800" alt="Parvez Hussain" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                <div className="absolute inset-0 bg-brand-orange/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="text-white font-bold text-xs uppercase tracking-widest">Architect</span>
-                </div>
               </div>
               <div className="text-center">
                 <div className="font-bold">Parvez Hussain</div>
                 <div className="text-xs text-brand-muted uppercase tracking-widest">Co-Founder</div>
               </div>
-            </motion.div>
+            </div>
           </div>
 
           <div className="order-1 lg:order-2">
@@ -810,7 +802,6 @@ const App = () => {
 
       {/* --- Pricing --- */}
       <section id="pricing" className="py-32 px-6 max-w-7xl mx-auto relative">
-        <InteractiveShape className="absolute top-20 right-20 w-40 h-40 opacity-30" parallax={-1} />
         <FadeUp>
           <SectionLabel>Membership pricing</SectionLabel>
           <StackedHeading lines={['The', 'all-in-one', 'solution']} />
@@ -1118,13 +1109,7 @@ const App = () => {
             </div>
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] uppercase tracking-widest text-brand-muted font-bold">
-            <motion.div 
-              whileHover={{ color: "#FF6B35" }}
-              className="cursor-help"
-              title="You found a secret! We love pixels."
-            >
-              Handcrafted in Edinburgh 🏴 by afferex™
-            </motion.div>
+            <div>Handcrafted in Edinburgh 🏴 by afferex™</div>
             <div>© 2026 All rights reserved</div>
           </div>
         </div>
